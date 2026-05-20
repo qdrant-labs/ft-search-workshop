@@ -9,11 +9,16 @@ ESCI graded relevance:
 Gain is computed as ``2 ** rel - 1`` for nDCG (standard graded-gain form).
 Recall@k uses the binary "relevant if grade in {E, S}" convention common in
 ESCI baselines, which gives stable, interpretable numbers for the slide.
+
+This module also exposes ``explain_metric`` -- a tiny one-liner translator
+that sits next to the precise number in the live metric tables, giving
+readers without an IR background a mental model for what nDCG and Recall
+actually measure.
 """
 
 from __future__ import annotations
 
-from typing import Dict, Mapping, Sequence, Tuple
+from typing import Dict, Mapping, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -122,9 +127,56 @@ def bootstrap_ci(
     return float(scores.mean()), lo, hi
 
 
+# ---------------------------------------------------------------------------
+# Plain-language explanations for headline metrics
+#
+# Calibration is workshop-tuned, not derived from a user study. The point is
+# to give a reader without an IR background a mental model next to the
+# precise number, not to replace it.
+# ---------------------------------------------------------------------------
+Number = Union[int, float]
+
+
+def explain_metric(metric_name: str, value: Number) -> str:
+    """Return a one-line plain-language explanation for a metric value.
+
+    Supported metrics (case-insensitive, separators ignored):
+        - ``ndcg@10`` / ``ndcg_at_10`` / ``ndcg10``
+        - ``recall@10`` / ``recall_at_10`` / ``recall10``
+
+    Unknown metrics return a generic ``"<metric> = <value>"`` string so the
+    notebook never crashes on a typo during the live demo.
+    """
+    key = "".join(ch for ch in metric_name.lower() if ch.isalnum())
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return f"{metric_name} = {value}"
+
+    if key in {"ndcg10", "ndcgat10"}:
+        # nDCG@10 is rank-weighted graded relevance on a 0-1 scale: partial
+        # credit for Substitute/Complement, not just Exact, with higher ranks
+        # weighted more heavily (log-discounted DCG / ideal DCG). It is NOT
+        # "share of top-10 that are Exact" -- earlier translations said that
+        # and it didn't survive a sharp PM question.
+        return (
+            f"ranking quality {v:.2f} / 1.0 "
+            "(higher = better products closer to rank 1; rank-weighted graded relevance E/S/C/I)"
+        )
+    if key in {"recall10", "recallat10"}:
+        # Recall@10 = average per query of (E/S products in top-10) / (total
+        # E/S products in qrels). NOT "fraction of queries with any hit"
+        # (that's Success@10).
+        pct = max(0.0, min(100.0, v * 100.0))
+        return f"top-10 contains {pct:.0f}% of known-relevant products per query, on average"
+
+    return f"{metric_name} = {value}"
+
+
 __all__ = [
     "ndcg_at_k",
     "recall_at_k",
     "bootstrap_ci",
     "ESCI_REL_MAP",
+    "explain_metric",
 ]

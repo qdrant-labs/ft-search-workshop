@@ -15,9 +15,9 @@ from eval.metrics import (
     recall_at_k,
     bootstrap_ci,
     ESCI_REL_MAP,
+    explain_metric,
 )
-from eval.viewer import compare_results, inspect_sparse_vector
-from eval.explain import explain_metric
+from eval.viewer import compare_results, inspect_sparse_vector, render_query_block
 from eval.encoders import SpladeEncoder
 
 __all__ = [
@@ -27,6 +27,7 @@ __all__ = [
     "ESCI_REL_MAP",
     "compare_results",
     "inspect_sparse_vector",
+    "render_query_block",
     "explain_metric",
     "SpladeEncoder",
 ]

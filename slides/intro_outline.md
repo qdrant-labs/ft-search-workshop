@@ -23,7 +23,7 @@ Target length: 20 minutes · 13 slides · audience is mixed-technical, including
 - Baseline dense (all-MiniLM-L6-v2) — rank 1 is a 55-inch LG TV (Substitute)
 - The Exact 65-inch LG TV is at rank 6
 - This isn't a one-off — variant, color, size, brand model are exactly where generic dense embeddings consistently lose ranking signal. (Drawn from real ESCI test queries; baseline rank verified.)
-**Speaker notes:** Pause on this slide. Let the room read it. The "Substitute" tag is the punchline — your retailer just sent the customer to the wrong-sized TV and they'll bounce. Say out loud: "this is what we're going to fix in the next 80 minutes." The query is one of 10 heroes attendees will run in CP1.
+**Speaker notes:** Pause on this slide. Let the room read it. The "Substitute" tag is the punchline — your retailer just sent the customer to the wrong-sized TV and they'll bounce. Say out loud: "this is what we're going to fix in the next 80 minutes." The query is one of 10 demo queries attendees will run in CP1.
 **Visual:** Mock-up of a search results page, e-commerce style: query bar at top with "65 lg tv" typed in. Rank 1 product card has a big red "Substitute · 55-inch" badge. Below it, rank 2/3/4 are also wrong (different sizes or brands). Way at the bottom, rank 6, a green "Exact · 65-inch LG" badge on the correct product. Stylistically a clean Amazon-store look — no Qdrant branding in the mock; it's the user's experience we're showing.
 
 ---
@@ -114,10 +114,10 @@ Target length: 20 minutes · 13 slides · audience is mixed-technical, including
 ## Slide 10: The lab — three checkpoints
 **Goal:** Roadmap. What they're about to do.
 **Bullets:**
-- **CP1 (12 min):** Baseline dense on 10 hero queries — qualitative, ESCI grades visible
+- **CP1 (12 min):** Baseline dense on 10 demo queries — qualitative, ESCI grades visible
 - **CP2 (20 min):** Fine-tuned SPLADE — first nDCG@10 numbers (3-way: BM25 / baseline dense / fine-tuned SPLADE)
 - **CP3 (13 min):** Hybrid fusion with RRF — two recipes side by side: Hybrid (D+BM25) and Hybrid (D+SPLADE)
-- **Wrap (15 min):** Full 2K eval with CIs across all five approaches (BM25, Dense, SPLADE, Hybrid (D+BM25), Hybrid (D+SPLADE)) · "where SPLADE breaks" · Q&A
+- **Wrap (15 min):** Full 2K eval with CIs across all five approaches (BM25, Dense, SPLADE, Hybrid (D+BM25), Hybrid (D+SPLADE)) · bad queries / query-routing demo · Q&A
 **Speaker notes:** Walk through each CP in ~20 seconds. Make clear the metric reveal lands in CP2 — CP1 is intentionally qualitative so attendees feel the failure modes before they see the numbers. CP3 introduces the second hybrid recipe so the wrap can compare all five approaches head-to-head. Total = 60 min hands-on.
 **Visual:** A horizontal timeline with four blocks (CP1, CP2, CP3, Wrap) sized proportionally to their minute budgets. Each block has a one-line subtitle and an icon (eyeballs for CP1, gauge for CP2, fusion-symbol for CP3, trophy for Wrap).
 
@@ -130,7 +130,7 @@ Target length: 20 minutes · 13 slides · audience is mixed-technical, including
 - Recall@10: comparable lift
 - Quality comparison across all five approaches: BM25, Dense, SPLADE, Hybrid (D+BM25), Hybrid (D+SPLADE)
 - Takeaway notebook: train your own on your own data
-**Speaker notes:** Specific numbers create commitment. The room now has a target to verify. Note the CI — this is the authoritative claim, not the in-room 200-query subset. Mention briefly that the 200-query slice is for live feel only. The two hybrid rows are the punchline: same RRF call structure, different sparse leg.
+**Speaker notes:** Specific numbers create commitment. The room now has a target to verify. Note the CI — this is the authoritative claim, not the illustrative demo-set metrics. The two hybrid rows are the punchline: same RRF call structure, different sparse leg.
 **Visual:** A preview of the final wrap table: 5 rows in lineup order (BM25, Dense, SPLADE, Hybrid (D+BM25), Hybrid (D+SPLADE)), columns for nDCG@10 (with CI bars), Recall@10, and the plain-English translation under each metric. Numbers shown as placeholders ("0.32 ± 0.02") so the slide doesn't lock the team to an exact number before the eval is run. Caption: "You'll see this filled in for real at the end."
 
 ---
@@ -140,13 +140,13 @@ Target length: 20 minutes · 13 slides · audience is mixed-technical, including
 **Bullets:**
 - Open the URL on your placard: `http://<vm-ip>:8888/lab`
 - The notebook `lab.ipynb` is already open
-- Run the **health-check cell** — should print one `[INFO]` debug line + three green `[OK]` lines:
-  - `[OK]   Qdrant reachable at http://localhost:6333`
-  - `[OK]   products collection populated (10K)`
-  - `[OK]   SpladeEncoder loaded offline (thierrydamiba/splade-ecommerce-esci)`
+- Run the **Setup cell** — should print green `[OK]` lines:
+  - `[OK] Qdrant up at localhost:6333, products collection has ~25,000 points (matches manifest)`
+  - `[OK] reachability spot-check: 50/50 sample products present`
+  - `[OK] ESCI eval set: ~2,000 queries loaded`
 - Raise your hand if any `[OK]` line is missing or replaced with `[FAIL]`
-**Speaker notes:** Pause the slide and walk the room. The three `[OK]` lines are Qdrant health, the single `products` collection populated, and the fine-tuned SPLADE encoder loadable offline. Anything red goes to the VM team helper, not you. Move to slide 13 once ≥90% of hands are down.
-**Visual:** Screenshot of the JupyterLab UI with the health-check cell expanded and its expected output visible (one `[INFO]` + three `[OK]` lines), with the URL bar of the browser highlighted in a callout. A small "raise hand" icon in the corner with text "anything red → flag a helper."
+**Speaker notes:** Pause the slide and walk the room. The Setup cell confirms Qdrant, manifest alignment, and live ESCI qrels. Anything red goes to the VM team helper, not you. Move to slide 13 once ≥90% of hands are down.
+**Visual:** Screenshot of the JupyterLab UI with the Setup cell expanded and its expected output visible, with the URL bar of the browser highlighted in a callout. A small "raise hand" icon in the corner with text "anything red → flag a helper."
 
 ---
 
@@ -154,7 +154,7 @@ Target length: 20 minutes · 13 slides · audience is mixed-technical, including
 **Goal:** Transition out of slides into the notebook.
 **Bullets:**
 - Scroll to **Checkpoint 1** in `lab.ipynb`
-- Run the hero queries one at a time
+- Run the demo queries one at a time
 - Tag the failure modes you see in the comments cell
 - 12 minutes — we share out at the end
 **Speaker notes:** Stop talking. Start a visible 12-minute timer on the projector. Walk the room. The first 60 seconds always have a few people who need help finding CP1 — that's normal.

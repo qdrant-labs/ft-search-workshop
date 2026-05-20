@@ -5,9 +5,10 @@ torch>=2.4
 pandas>=2.2,<2.3
 numpy>=1.26,<2.0
 ipython>=8
+ipykernel>=6
 jupyterlab>=4.2,<4.3
 tqdm>=4
-# Build-time dependency: pulls ESCI in scripts/curate_heroes.py and scripts/build_eval_data.py.
-# Required for the data pipeline; the lab notebook itself doesn't import datasets.
+# Pulls the Amazon ESCI test split live: used by the lab notebook's Setup cell
+# (2K eval queries + qrels) and by scripts/setup_collections.py (product corpus).
 datasets>=2.18,<3
 # splade_training.ipynb needs: sentence-transformers, matplotlib, huggingface_hub — install separately for the training takeaway

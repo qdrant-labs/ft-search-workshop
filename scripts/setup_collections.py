@@ -1,4 +1,4 @@
-"""Build the single Qdrant ``products`` collection used in the workshop.
+"""Provision the workshop's Qdrant ``products`` collection from ESCI directly.
 
 One collection, three named vectors per point:
 
@@ -13,16 +13,29 @@ Hybrid (dense + fine-tuned SPLADE, RRF) is queried via Qdrant's Query API at
 runtime -- a single ``query_points`` call with two ``Prefetch`` blocks and a
 ``FusionQuery(fusion=Fusion.RRF)``.
 
+Eval contract
+-------------
+The headline lab eval is 2,000 ESCI test queries, deterministically sampled
+(``random.Random(13).sample(sorted(qids), 2000)``) plus a forced union with
+the demo queries' ``esci_qid`` values. The corpus is every product appearing
+in any of those queries' qrels rows -- typically ~20-25K unique products --
+so every selected test query's Exact-grade products are reachable.
+
+The selection is materialized into ``data/corpus_manifest.json`` at the end
+of provisioning. The lab notebook reads that manifest to (a) sanity-check
+the Qdrant collection it sees was built from the same selection and (b)
+filter the live ESCI test split down to exactly the 2K eval set used at
+provision time. The manifest is what keeps provisioning and notebook in
+lockstep -- never edit it by hand.
+
 Usage::
 
-    python scripts/setup_collections.py \\
-        --products data/products_10k.jsonl \\
-        --qdrant-url http://localhost:6333
+    python scripts/setup_collections.py --qdrant-url http://localhost:6333 --recreate
 
-The products file is jsonl by default; ``.parquet`` and ``.csv`` are also
-auto-detected by suffix. Required columns: ``product_id``, ``product_title``.
-Optional indexed/payload columns: ``product_brand``, ``product_color``,
-``product_description``.
+Provisioning cost (CPU only, single VM):
+* ~20-25K product corpus
+* SPLADE-encode pass dominates (~1-2h on 4 vCPU)
+* Use ``--device cuda`` if a GPU is available -- drops to a few minutes
 """
 
 from __future__ import annotations
@@ -30,14 +43,17 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import random
 import sys
 import time
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Set
 
 import pandas as pd
 import torch
+from datasets import load_dataset
 from fastembed import SparseTextEmbedding, TextEmbedding
 from qdrant_client import QdrantClient, models
 from transformers import AutoTokenizer
@@ -47,10 +63,12 @@ from eval.encoders import SpladeEncoder  # noqa: E402
 
 LOG = logging.getLogger("setup_collections")
 
-DEFAULT_PRODUCTS = "data/products_10k.jsonl"
 DEFAULT_QDRANT_URL = "http://localhost:6333"
+DEFAULT_ESCI_DATASET = "tasksource/esci"
+DEFAULT_EVAL_SAMPLE_SIZE = 2000
+DEFAULT_EVAL_SAMPLE_SEED = 13
 
-# Single collection name -- kept in sync with notebooks and other scripts.
+# Single collection name -- kept in sync with the lab notebook.
 COLLECTION = "products"
 
 # Vector / model identifiers.
@@ -59,11 +77,16 @@ DENSE_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 DENSE_DIM = 384
 SPLADE_FINETUNED_MODEL_DEFAULT = "thierrydamiba/splade-ecommerce-esci"
 
-# Named-vector identifiers on every point. The notebook + benchmark script
-# both reference these by name in ``using=...`` / ``Prefetch(using=...)``.
+# Named-vector identifiers on every point. The notebook references these by
+# name in ``using=...`` / ``Prefetch(using=...)``.
 DENSE_VECTOR_NAME = "dense"
 BM25_VECTOR_NAME = "bm25"
 SPLADE_VECTOR_NAME = "splade_finetuned"
+
+# Path the notebook reads to learn which 2K queries to evaluate and how big
+# the corpus should be. Written at the end of every successful provisioning.
+MANIFEST_PATH = Path("data/corpus_manifest.json")
+MANIFEST_SAMPLE_SIZE = 50  # number of product_ids retained for reachability spot-check
 
 
 def parse_args() -> argparse.Namespace:
@@ -71,13 +94,20 @@ def parse_args() -> argparse.Namespace:
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p.add_argument(
-        "--products",
-        default=DEFAULT_PRODUCTS,
-        help="Path to ESCI products jsonl/parquet/csv",
-    )
     p.add_argument("--qdrant-url", default=DEFAULT_QDRANT_URL)
     p.add_argument("--qdrant-api-key", default=None)
+    p.add_argument("--esci-dataset", default=DEFAULT_ESCI_DATASET,
+                   help="HuggingFace dataset id for ESCI")
+    p.add_argument("--eval-sample-size", type=int, default=DEFAULT_EVAL_SAMPLE_SIZE,
+                   help="Number of test queries to sample for the headline eval")
+    p.add_argument("--eval-sample-seed", type=int, default=DEFAULT_EVAL_SAMPLE_SEED,
+                   help="Seed for the deterministic eval-query sample")
+    p.add_argument(
+        "--demo-queries",
+        dest="demo_queries",
+        default="data/demo_queries.json",
+        help="Path to demo_queries.json; their esci_qid values are forced into the manifest",
+    )
     p.add_argument("--batch-size", type=int, default=256)
     p.add_argument("--finetuned-model", default=SPLADE_FINETUNED_MODEL_DEFAULT)
     p.add_argument(
@@ -94,46 +124,164 @@ def parse_args() -> argparse.Namespace:
         "--limit",
         type=int,
         default=None,
-        help="Optional product cap (for smoke tests)",
+        help="Optional product cap (for smoke tests). Bypasses the manifest contract.",
     )
     p.add_argument("--log-level", default="INFO")
     return p.parse_args()
 
 
 # ---------------------------------------------------------------------------
-# Product loader (jsonl-first, parquet/csv auto-detected)
+# ESCI loader + deterministic 2K sample.
+#
+# The ``small_version`` filter is the ESCI dataset's own English-only subset
+# (the "reduced English" cut). ``tasksource/esci`` (and most mirrors) tag
+# each row with this; we still tolerate missing/non-numeric values.
 # ---------------------------------------------------------------------------
-def load_products(path: str, limit: int | None) -> pd.DataFrame:
-    p = Path(path)
-    if not p.exists():
-        raise FileNotFoundError(f"products file not found: {p}")
-    suffix = p.suffix.lower()
-    if suffix in {".jsonl", ".ndjson"}:
-        rows: List[Dict] = []
-        with p.open("r", encoding="utf-8") as fh:
-            for line in fh:
-                line = line.strip()
-                if not line:
-                    continue
-                rows.append(json.loads(line))
-                if limit is not None and len(rows) >= limit:
-                    break
-        df = pd.DataFrame(rows)
-    elif suffix in {".parquet", ".pq"}:
-        df = pd.read_parquet(p)
-        if limit is not None:
-            df = df.head(limit).copy()
+def _row_is_eligible(row: dict) -> bool:
+    if str(row.get("product_locale", "us")).lower() != "us":
+        return False
+    small = row.get("small_version", 1)
+    try:
+        return int(small) == 1
+    except (TypeError, ValueError):
+        return True
+
+
+def load_esci_filtered(dataset_id: str) -> List[dict]:
+    """Pull every row in the ESCI test split that passes the US/small filter.
+
+    Returns the raw rows (we group them later). Materializing this once
+    avoids a second pass over the HF cache.
+    """
+    LOG.info("loading ESCI from HF: %s (split=test, locale=us, small=1)", dataset_id)
+    ds = load_dataset(dataset_id, split="test")
+    rows = [r for r in ds if _row_is_eligible(r)]
+    if not rows:
+        raise RuntimeError(
+            f"No eligible rows in {dataset_id} after filtering on "
+            f"product_locale='us' and small_version==1. Check the schema -- "
+            f"this loader expects product_locale and small_version columns."
+        )
+    LOG.info("ESCI: %d eligible rows after US/small filter", len(rows))
+    return rows
+
+
+def select_eval_query_ids(
+    rows: List[dict],
+    sample_size: int,
+    seed: int,
+    demo_qids: Set[int],
+) -> List[int]:
+    """Deterministically pick the eval query-id set, force-including demos.
+
+    The headline lab eval is a fixed sample of ``sample_size`` queries
+    (random, seeded) unioned with every demo query's ``esci_qid``. Demo queries
+    are forced in so the CP2/CP3 narrative survives any reshuffle of the
+    sample. Returns a sorted list of integer query_ids.
+    """
+    all_qids = sorted({int(r["query_id"]) for r in rows if "query_id" in r})
+    if len(all_qids) < sample_size:
+        LOG.warning(
+            "ESCI eligible queries (%d) < requested sample (%d); using all.",
+            len(all_qids), sample_size,
+        )
+        sampled = set(all_qids)
     else:
-        df = pd.read_csv(p)
-        if limit is not None:
-            df = df.head(limit).copy()
-    required = {"product_id", "product_title"}
-    missing = required - set(df.columns)
-    if missing:
-        raise ValueError(f"products file missing columns: {missing}")
+        rng = random.Random(seed)
+        sampled = set(rng.sample(all_qids, k=sample_size))
+    missing_demos = demo_qids - set(all_qids)
+    if missing_demos:
+        raise RuntimeError(
+            f"Demo esci_qids missing from ESCI test split: {sorted(missing_demos)}. "
+            f"Either fix demo_queries.json or pick a different dataset mirror."
+        )
+    final = sorted(sampled | demo_qids)
+    LOG.info(
+        "eval manifest: %d queries (%d sampled + %d demos, %d overlap)",
+        len(final), len(sampled), len(demo_qids),
+        len(sampled & demo_qids),
+    )
+    return final
+
+
+def collect_corpus_from_eval(
+    rows: List[dict],
+    eval_qids: Set[int],
+    limit: int | None,
+) -> pd.DataFrame:
+    """Collect every product appearing in any qrels row of the eval queries.
+
+    This is what guarantees corpus reachability for the headline metric:
+    every test query's graded products are physically present.
+    """
+    seen: Dict[str, Dict] = {}
+    for row in rows:
+        try:
+            qid = int(row["query_id"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if qid not in eval_qids:
+            continue
+        pid = row.get("product_id")
+        if not pid or pid in seen:
+            continue
+        seen[pid] = {
+            "product_id": pid,
+            "product_title": row.get("product_title", "") or "",
+            "product_brand": row.get("product_brand", "") or "",
+            "product_color": row.get("product_color", "") or "",
+            "product_description": row.get("product_description", "") or "",
+        }
+        if limit is not None and len(seen) >= limit:
+            LOG.info("hit --limit=%d, stopping corpus collection early", limit)
+            break
+
+    df = pd.DataFrame(list(seen.values()))
+    if df.empty:
+        raise RuntimeError(
+            "No products collected from eval qrels. Check whether the "
+            "eval_qids actually intersect the ESCI rows."
+        )
     df["_text"] = df.apply(_compose_text, axis=1)
-    LOG.info("loaded %d products from %s", len(df), p)
+    LOG.info("corpus: %d unique products from %d eval queries' qrels", len(df), len(eval_qids))
     return df
+
+
+def write_corpus_manifest(
+    manifest_path: Path,
+    *,
+    dataset_id: str,
+    eval_query_ids: List[int],
+    corpus_df: pd.DataFrame,
+    sample_seed: int,
+    sample_size: int,
+) -> None:
+    """Write the contract the lab notebook reads at startup."""
+    rng = random.Random(sample_seed)
+    sorted_pids = sorted(corpus_df["product_id"].tolist())
+    sample_pids = (
+        sorted_pids if len(sorted_pids) <= MANIFEST_SAMPLE_SIZE
+        else rng.sample(sorted_pids, k=MANIFEST_SAMPLE_SIZE)
+    )
+    manifest = {
+        "schema_version": 1,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "dataset_id": dataset_id,
+        "split": "test",
+        "locale": "us",
+        "small_version": 1,
+        "eval_sample_size": sample_size,
+        "eval_sample_seed": sample_seed,
+        "eval_query_ids": eval_query_ids,
+        "corpus_product_count": int(len(corpus_df)),
+        "corpus_sample_product_ids": sorted(sample_pids),
+    }
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    LOG.info(
+        "wrote %s (eval_queries=%d, corpus=%d, sample=%d)",
+        manifest_path, len(eval_query_ids), len(corpus_df), len(sample_pids),
+    )
 
 
 def _compose_text(row: pd.Series) -> str:
@@ -146,13 +294,13 @@ def _compose_text(row: pd.Series) -> str:
 
 
 def _stable_point_id(product_id: str) -> str:
-    """Convert an arbitrary ESCI product_id to a UUID Qdrant accepts as a point id."""
+    """Convert an ESCI product_id (ASIN) to a UUID Qdrant accepts as a point id."""
     return str(uuid.uuid5(uuid.NAMESPACE_URL, f"esci:{product_id}"))
 
 
 def _payload(row: Dict) -> Dict:
     keep = ("product_id", "product_title", "product_brand", "product_color")
-    return {k: row[k] for k in keep if k in row and pd.notna(row[k])}
+    return {k: row[k] for k in keep if k in row and pd.notna(row[k]) and row[k] != ""}
 
 
 # ---------------------------------------------------------------------------
@@ -260,8 +408,7 @@ def write_splade_vocab(model_name: str, out_path: str = "data/splade_vocab.json"
 
     The lab notebook's sparse-vector inspection cell uses this to render
     human-readable terms (``iphone``) instead of raw token indices
-    (``#1045``). One-shot side effect of the build -- call after the
-    ``products`` collection is populated.
+    (``#1045``).
     """
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     vocab = {int(v): k for k, v in tokenizer.vocab.items()}
@@ -281,7 +428,25 @@ def main() -> int:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
-    df = load_products(args.products, args.limit)
+    demo_qids: Set[int] = set()
+    demo_path = Path(args.demo_queries)
+    if demo_path.exists():
+        for h in json.loads(demo_path.read_text()):
+            if "esci_qid" in h:
+                demo_qids.add(int(h["esci_qid"]))
+        LOG.info("loaded %d demo qids from %s", len(demo_qids), demo_path)
+    else:
+        LOG.warning("demo_queries file %s not found; manifest will exclude demo forcing", demo_path)
+
+    rows = load_esci_filtered(args.esci_dataset)
+    eval_qids = select_eval_query_ids(
+        rows,
+        sample_size=args.eval_sample_size,
+        seed=args.eval_sample_seed,
+        demo_qids=demo_qids,
+    )
+    df = collect_corpus_from_eval(rows, set(eval_qids), args.limit)
+
     client = QdrantClient(url=args.qdrant_url, api_key=args.qdrant_api_key)
 
     created = _ensure_collection(client, args.recreate)
@@ -297,11 +462,15 @@ def main() -> int:
         LOG.info("collection exists; skipping population (use --recreate to rebuild)")
 
     write_splade_vocab(args.finetuned_model, "data/splade_vocab.json")
-
-    # Final assertion: vm/SETUP.md promises this script asserts collection
-    # count + status before exiting 0. Earlier upserts used wait=False, so
-    # poll get_collection() until indexing settles or we time out.
     _verify_collection_ready(client, expected_count=len(df))
+    write_corpus_manifest(
+        MANIFEST_PATH,
+        dataset_id=args.esci_dataset,
+        eval_query_ids=eval_qids,
+        corpus_df=df,
+        sample_seed=args.eval_sample_seed,
+        sample_size=args.eval_sample_size,
+    )
 
     LOG.info("done")
     return 0
@@ -313,12 +482,7 @@ def _verify_collection_ready(
     max_wait_seconds: float = 120.0,
     poll_interval: float = 2.0,
 ) -> None:
-    """Poll the ``products`` collection until both points_count and status agree.
-
-    Exits the process non-zero (via ``RuntimeError``) if the collection
-    doesn't reach green status with the expected count inside the timeout —
-    this is the VM-build pipeline's load-bearing assertion.
-    """
+    """Poll the ``products`` collection until points_count and status agree."""
     deadline = time.time() + max_wait_seconds
     last_count = -1
     last_status = "unknown"

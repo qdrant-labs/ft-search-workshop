@@ -180,13 +180,15 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
-# Workshop build outputs — produced by scripts/, not source. See README.md.
-data/products_10k.jsonl
+# Workshop build outputs — produced by scripts/setup_collections.py at provision time.
+# Source-of-truth datasets are loaded from HuggingFace at runtime; only the
+# SPLADE vocab, the corpus/eval manifest, and any local debug dumps land here.
 data/splade_vocab.json
-data/qrels_hero.json
-data/eval_subset_*.json
-data/eval_full_*.json
-data/_candidates_debug.json
+data/corpus_manifest.json
+data/_*.json
 
 # Local Qdrant storage if standing one up via docker locally.
 qdrant_data/
+
+# Local .claude directory
+.claude/
