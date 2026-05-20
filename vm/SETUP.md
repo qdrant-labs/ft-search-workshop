@@ -112,7 +112,7 @@ docker run -d \
   --restart unless-stopped \
   -p 6333:6333 \
   -v /opt/workshop/qdrant_data:/qdrant/storage \
-  qdrant/qdrant:v1.12.4
+  qdrant/qdrant:v1.18.0
 ```
 
 Verify Qdrant:
@@ -211,11 +211,11 @@ print('OK: dense query returned 5 results')
 Then open the built-in IDE, open `notebooks/lab.ipynb`, and run the first Setup cell. Expected shape:
 
 ```text
-[OK] Qdrant up at localhost:6333, products collection has ~25,000 points (matches manifest)
+[OK] Qdrant up at localhost:6333, products collection has ~38,000 points (matches manifest)
 [OK] reachability spot-check: 50/50 sample products present
-Loading ESCI test split from HuggingFace and filtering to ~2,000 eval queries...
+Loading ~2,000 ESCI eval queries from HuggingFace...
 [OK] ESCI eval set: ~2,000 queries loaded
-Ready. Corpus: ~25,000 products · 10 demo queries · 5 bad queries · ~2,000 eval queries.
+Ready. Corpus: ~38,000 products · 10 demo queries · 5 bad queries · ~2,000 eval queries.
 ```
 
 ## Pilot Run

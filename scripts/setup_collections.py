@@ -15,11 +15,11 @@ runtime -- a single ``query_points`` call with two ``Prefetch`` blocks and a
 
 Eval contract
 -------------
-The headline lab eval is 2,000 ESCI test queries, deterministically sampled
-(``random.Random(13).sample(sorted(qids), 2000)``) plus a forced union with
-the demo queries' ``esci_qid`` values. The corpus is every product appearing
-in any of those queries' qrels rows -- typically ~20-25K unique products --
-so every selected test query's Exact-grade products are reachable.
+The headline lab eval is 2,000 ESCI US test queries, deterministically sampled
+while force-including the demo queries' ``esci_qid`` values. The corpus is
+every product appearing in any of those queries' qrels rows -- typically
+~35-40K unique products -- so every selected test query's Exact-grade
+products are reachable.
 
 The selection is materialized into ``data/corpus_manifest.json`` at the end
 of provisioning. The lab notebook reads that manifest to (a) sanity-check
@@ -33,7 +33,7 @@ Usage::
     python scripts/setup_collections.py --qdrant-url http://localhost:6333 --recreate
 
 Provisioning cost (CPU only, single VM):
-* ~20-25K product corpus
+* ~35-40K product corpus
 * SPLADE-encode pass dominates (~1-2h on 4 vCPU)
 * Use ``--device cuda`` if a GPU is available -- drops to a few minutes
 """
@@ -43,6 +43,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import platform
 import random
 import sys
 import time
@@ -89,6 +90,17 @@ MANIFEST_PATH = Path("data/corpus_manifest.json")
 MANIFEST_SAMPLE_SIZE = 50  # number of product_ids retained for reachability spot-check
 
 
+def assert_supported_runtime() -> None:
+    """Fail before FastEmbed reaches a native segfault on unsupported runtimes."""
+    if sys.version_info >= (3, 14):
+        py = platform.python_version()
+        raise RuntimeError(
+            f"Python {py} is not supported for this workshop. FastEmbed/ONNX "
+            f"Runtime currently segfaults during local indexing on Python 3.14. "
+            f"Recreate your virtualenv with Python 3.12, then rerun this script."
+        )
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description=__doc__,
@@ -133,36 +145,30 @@ def parse_args() -> argparse.Namespace:
 # ---------------------------------------------------------------------------
 # ESCI loader + deterministic 2K sample.
 #
-# The ``small_version`` filter is the ESCI dataset's own English-only subset
-# (the "reduced English" cut). ``tasksource/esci`` (and most mirrors) tag
-# each row with this; we still tolerate missing/non-numeric values.
+# We use all US rows from the ESCI test split. Some curated demo queries are
+# outside ESCI's ``small_version == 1`` subset, and they are still valid US
+# query/product judgments for this workshop.
 # ---------------------------------------------------------------------------
 def _row_is_eligible(row: dict) -> bool:
-    if str(row.get("product_locale", "us")).lower() != "us":
-        return False
-    small = row.get("small_version", 1)
-    try:
-        return int(small) == 1
-    except (TypeError, ValueError):
-        return True
+    return str(row.get("product_locale", "us")).lower() == "us"
 
 
 def load_esci_filtered(dataset_id: str) -> List[dict]:
-    """Pull every row in the ESCI test split that passes the US/small filter.
+    """Pull every US row in the ESCI test split.
 
     Returns the raw rows (we group them later). Materializing this once
     avoids a second pass over the HF cache.
     """
-    LOG.info("loading ESCI from HF: %s (split=test, locale=us, small=1)", dataset_id)
+    LOG.info("loading ESCI from HF: %s (split=test, locale=us)", dataset_id)
     ds = load_dataset(dataset_id, split="test")
     rows = [r for r in ds if _row_is_eligible(r)]
     if not rows:
         raise RuntimeError(
             f"No eligible rows in {dataset_id} after filtering on "
-            f"product_locale='us' and small_version==1. Check the schema -- "
-            f"this loader expects product_locale and small_version columns."
+            f"product_locale='us'. Check the schema -- this loader expects "
+            f"a product_locale column."
         )
-    LOG.info("ESCI: %d eligible rows after US/small filter", len(rows))
+    LOG.info("ESCI: %d eligible rows after US filter", len(rows))
     return rows
 
 
@@ -175,33 +181,42 @@ def select_eval_query_ids(
     """Deterministically pick the eval query-id set, force-including demos.
 
     The headline lab eval is a fixed sample of ``sample_size`` queries
-    (random, seeded) unioned with every demo query's ``esci_qid``. Demo queries
-    are forced in so the CP2/CP3 narrative survives any reshuffle of the
-    sample. Returns a sorted list of integer query_ids.
+    (random, seeded) that always includes every demo query's ``esci_qid``.
+    Demo queries are forced in so the CP2/CP3 narrative survives any reshuffle
+    of the sample. Returns a sorted list of integer query_ids.
     """
     all_qids = sorted({int(r["query_id"]) for r in rows if "query_id" in r})
-    if len(all_qids) < sample_size:
-        LOG.warning(
-            "ESCI eligible queries (%d) < requested sample (%d); using all.",
-            len(all_qids), sample_size,
-        )
-        sampled = set(all_qids)
-    else:
-        rng = random.Random(seed)
-        sampled = set(rng.sample(all_qids, k=sample_size))
     missing_demos = demo_qids - set(all_qids)
     if missing_demos:
         raise RuntimeError(
             f"Demo esci_qids missing from ESCI test split: {sorted(missing_demos)}. "
             f"Either fix demo_queries.json or pick a different dataset mirror."
         )
-    final = sorted(sampled | demo_qids)
+    if len(demo_qids) > sample_size:
+        raise RuntimeError(
+            f"Demo query count ({len(demo_qids)}) exceeds requested eval sample "
+            f"size ({sample_size})."
+        )
+    if len(all_qids) < sample_size:
+        LOG.warning(
+            "ESCI eligible queries (%d) < requested sample (%d); using all.",
+            len(all_qids), sample_size,
+        )
+        final = set(all_qids)
+    else:
+        rng = random.Random(seed)
+        sample_pool = [qid for qid in all_qids if qid not in demo_qids]
+        sampled = set(rng.sample(sample_pool, k=sample_size - len(demo_qids)))
+        final = sampled | demo_qids
+    result = sorted(final)
+    included_demos = len(demo_qids & set(result))
     LOG.info(
-        "eval manifest: %d queries (%d sampled + %d demos, %d overlap)",
-        len(final), len(sampled), len(demo_qids),
-        len(sampled & demo_qids),
+        "eval manifest: %d queries (%d random + %d demos)",
+        len(result),
+        len(result) - included_demos,
+        included_demos,
     )
-    return final
+    return result
 
 
 def collect_corpus_from_eval(
@@ -264,12 +279,12 @@ def write_corpus_manifest(
         else rng.sample(sorted_pids, k=MANIFEST_SAMPLE_SIZE)
     )
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "dataset_id": dataset_id,
         "split": "test",
         "locale": "us",
-        "small_version": 1,
+        "small_version": None,
         "eval_sample_size": sample_size,
         "eval_sample_seed": sample_seed,
         "eval_query_ids": eval_query_ids,
@@ -427,6 +442,7 @@ def main() -> int:
         level=args.log_level,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+    assert_supported_runtime()
 
     demo_qids: Set[int] = set()
     demo_path = Path(args.demo_queries)

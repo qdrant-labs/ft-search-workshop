@@ -1,14 +1,17 @@
-qdrant-client>=1.12,<1.13
-fastembed>=0.4,<0.5
-transformers>=4.44,<4.45
-torch>=2.4
-pandas>=2.2,<2.3
-numpy>=1.26,<2.0
+# Use Python 3.11 or 3.12 for the workshop environment. Python 3.14 currently
+# triggers a native FastEmbed/ONNX Runtime crash during local indexing on macOS.
+qdrant-client[fastembed]>=1.18,<1.19
+transformers>=4.57,<5
+torch>=2.12
+pandas>=2.3,<3
+numpy>=2,<3
 ipython>=8
 ipykernel>=6
-jupyterlab>=4.2,<4.3
+jupyterlab>=4.2,<5
 tqdm>=4
 # Pulls the Amazon ESCI test split live: used by the lab notebook's Setup cell
 # (2K eval queries + qrels) and by scripts/setup_collections.py (product corpus).
-datasets>=2.18,<3
+datasets>=4.8,<5
+dill>=0.4.1,<0.4.2
+multiprocess>=0.70.19,<0.70.20
 # splade_training.ipynb needs: sentence-transformers, matplotlib, huggingface_hub — install separately for the training takeaway

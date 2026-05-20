@@ -25,21 +25,27 @@ requirements.txt
 
 ## Prerequisites
 
-- Python 3.11
+- Python 3.12. Confirm with `python3.12 --version`.
 - Docker
-- Recommended: 16 GB RAM and enough time for the SPLADE product-encoding pass
+- Recommended: 16 GB RAM
+- Set aside one to two hours for the SPLADE product-encoding
 
-The collection build indexes roughly 20K-30K products. On CPU, SPLADE product encoding can take a while. That is normal.
+The collection build indexes roughly 35K-40K products. On CPU, SPLADE product encoding can take a while. That is normal.
+
+On macOS, install Python 3.12 with `brew install python@3.12` if `python3.12` is not already available.
 
 ## Local Setup
 
 Create a Python environment and install dependencies:
 
 ```bash
-python -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+python --version
+python -m pip install -r requirements.txt
 ```
+
+Avoid Python 3.14 for this repo for now: the current FastEmbed/ONNX Runtime stack can segfault during local indexing on macOS.
 
 Start Qdrant:
 
@@ -48,7 +54,7 @@ docker run -d \
   --name ft-search-qdrant \
   -p 6333:6333 \
   -v "$PWD/qdrant_data:/qdrant/storage" \
-  qdrant/qdrant:v1.12.4
+  qdrant/qdrant:v1.18.0
 ```
 
 Build the local product collection:
@@ -57,11 +63,13 @@ Build the local product collection:
 python scripts/setup_collections.py --recreate
 ```
 
-That command loads the ESCI test split, selects the deterministic 2K-query eval set, indexes every product referenced by those queries, and writes:
+That command loads the ESCI test split (labeled product-search queries with Exact/Substitute/Complement/Irrelevant grades), selects the deterministic 2K-query eval set, indexes every product referenced by those queries, and writes:
 
 - `data/corpus_manifest.json`
 - `data/splade_vocab.json`
 - Qdrant collection `products`
+
+This corpus construction is workshop-specific. We use a subset of ESCI and index only products with relevance labels for the selected eval queries so every graded product is reachable during the lab. In a normal production workflow, you would index your full product catalog first, then evaluate against query logs, judgments, clicks, or other relevance data.
 
 ## Run The Lab
 
