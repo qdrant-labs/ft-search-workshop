@@ -1,0 +1,13 @@
+qdrant-client>=1.12,<1.13
+fastembed>=0.4,<0.5
+transformers>=4.44,<4.45
+torch>=2.4
+pandas>=2.2,<2.3
+numpy>=1.26,<2.0
+ipython>=8
+jupyterlab>=4.2,<4.3
+tqdm>=4
+# Build-time dependency: pulls ESCI in scripts/curate_heroes.py and scripts/build_eval_data.py.
+# Required for the data pipeline; the lab notebook itself doesn't import datasets.
+datasets>=2.18,<3
+# splade_training.ipynb needs: sentence-transformers, matplotlib, huggingface_hub — install separately for the training takeaway

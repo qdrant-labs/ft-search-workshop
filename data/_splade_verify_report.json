@@ -1,0 +1,82 @@
+[
+  {
+    "hero_id": "ele_65_lg_tv",
+    "text": "65 lg tv",
+    "esci_qid": 5021,
+    "splade_rank_first_exact": 0,
+    "splade_wins": true,
+    "baseline_evidence": "Baseline (MiniLM) ranks the first Exact-grade product at position 6 of 3 Exact(s) available"
+  },
+  {
+    "hero_id": "ele_apple_iphone_11_case",
+    "text": "apple iphone 11 case",
+    "esci_qid": 9719,
+    "splade_rank_first_exact": 0,
+    "splade_wins": true,
+    "baseline_evidence": "Baseline (MiniLM) ranks the first Exact-grade product at position 4 of 7 Exact(s) available"
+  },
+  {
+    "hero_id": "ele_spectre_24_inch_monitor",
+    "text": "spectre 24 inch monitor",
+    "esci_qid": 96622,
+    "splade_rank_first_exact": 0,
+    "splade_wins": true,
+    "baseline_evidence": "Baseline (MiniLM) ranks the first Exact-grade product at position 5 of 3 Exact(s) available"
+  },
+  {
+    "hero_id": "ele_apple_watch_series_5_band_for_men",
+    "text": "apple watch series 5 band for men",
+    "esci_qid": 9912,
+    "splade_rank_first_exact": 0,
+    "splade_wins": true,
+    "baseline_evidence": "Baseline (MiniLM) ranks the first Exact-grade product at position 13 of 5 Exact(s) available"
+  },
+  {
+    "hero_id": "hom_10_gallon_fish_tank",
+    "text": "10 gallon fish tank",
+    "esci_qid": 1199,
+    "splade_rank_first_exact": 3,
+    "splade_wins": false,
+    "baseline_evidence": "Baseline (MiniLM) ranks the first Exact-grade product at position 9 of 3 Exact(s) available"
+  },
+  {
+    "hero_id": "hom_11_piece_knife_set_without_block",
+    "text": "11 piece knife set without block",
+    "esci_qid": 1703,
+    "splade_rank_first_exact": 2,
+    "splade_wins": true,
+    "baseline_evidence": "Baseline (MiniLM) ranks the first Exact-grade product at position 8 of 3 Exact(s) available"
+  },
+  {
+    "hero_id": "hom_2oz_plastic_containers_with_lids",
+    "text": "2oz plastic containers with lids",
+    "esci_qid": 3225,
+    "splade_rank_first_exact": 0,
+    "splade_wins": true,
+    "baseline_evidence": "Baseline (MiniLM) ranks the first Exact-grade product at position 7 of 5 Exact(s) available"
+  },
+  {
+    "hero_id": "oth_white_extension_cord_8_feet",
+    "text": "white extension cord 8 feet",
+    "esci_qid": 111097,
+    "splade_rank_first_exact": 0,
+    "splade_wins": true,
+    "baseline_evidence": "Baseline (MiniLM) ranks the first Exact-grade product at position 6 of 4 Exact(s) available"
+  },
+  {
+    "hero_id": "app_size_8_girls_pants",
+    "text": "size 8 girls pants",
+    "esci_qid": 93904,
+    "splade_rank_first_exact": 3,
+    "splade_wins": false,
+    "baseline_evidence": "Baseline (MiniLM) ranks the first Exact-grade product at position 4 of 3 Exact(s) available"
+  },
+  {
+    "hero_id": "oth_toys_for_2_year_old_girls",
+    "text": "toys for 2 year old girls",
+    "esci_qid": 104623,
+    "splade_rank_first_exact": 5,
+    "splade_wins": false,
+    "baseline_evidence": "Baseline (MiniLM) returns 19 graded products including some Exacts, but the query is a broad age+gender recommendation intent rather than a specific SKU lookup. Included to illustrate that retrieval models can't substitute for a recommender on intent-style queries."
+  }
+]
