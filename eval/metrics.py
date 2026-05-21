@@ -7,13 +7,12 @@ ESCI graded relevance:
     I (Irrelevant)  -> rel 0
 
 Gain is computed as ``2 ** rel - 1`` for nDCG (standard graded-gain form).
-Recall@k uses the binary "relevant if grade in {E, S}" convention common in
-ESCI baselines, which gives stable, interpretable numbers for the slide.
+MRR@k, Recall@k, and Precision@k use the binary "relevant if grade in {E, S}"
+convention common in ESCI baselines, which gives stable, interpretable numbers
+for the slide.
 
 This module also exposes ``explain_metric`` -- a tiny one-liner translator
-that sits next to the precise number in the live metric tables, giving
-readers without an IR background a mental model for what nDCG and Recall
-actually measure.
+for notebooks or docs that need a plain-English metric description.
 """
 
 from __future__ import annotations
@@ -101,6 +100,40 @@ def recall_at_k(
     return len(top & relevant) / len(relevant)
 
 
+def precision_at_k(
+    retrieved_ids: Sequence[str],
+    qrels: Mapping[str, str],
+    k: int = 10,
+) -> float:
+    """Precision@k using ESCI {E, S} as the relevant set."""
+    if k <= 0 or not retrieved_ids:
+        return 0.0
+
+    relevant = {pid for pid, g in qrels.items() if str(g).upper() in _RECALL_RELEVANT_GRADES}
+    if not relevant:
+        return 0.0
+    top = list(retrieved_ids)[:k]
+    return sum(1 for pid in top if pid in relevant) / min(k, len(top))
+
+
+def mrr_at_k(
+    retrieved_ids: Sequence[str],
+    qrels: Mapping[str, str],
+    k: int = 10,
+) -> float:
+    """MRR@k using ESCI {E, S} as the relevant set."""
+    if k <= 0 or not retrieved_ids:
+        return 0.0
+
+    relevant = {pid for pid, g in qrels.items() if str(g).upper() in _RECALL_RELEVANT_GRADES}
+    if not relevant:
+        return 0.0
+    for rank, pid in enumerate(list(retrieved_ids)[:k], start=1):
+        if pid in relevant:
+            return 1.0 / rank
+    return 0.0
+
+
 def bootstrap_ci(
     per_query_scores: Sequence[float],
     n_bootstrap: int = 1000,
@@ -142,7 +175,9 @@ def explain_metric(metric_name: str, value: Number) -> str:
 
     Supported metrics (case-insensitive, separators ignored):
         - ``ndcg@10`` / ``ndcg_at_10`` / ``ndcg10``
+        - ``mrr@10`` / ``mrr_at_10`` / ``mrr10``
         - ``recall@10`` / ``recall_at_10`` / ``recall10``
+        - ``precision@10`` / ``precision_at_10`` / ``precision10``
 
     Unknown metrics return a generic ``"<metric> = <value>"`` string so the
     notebook never crashes on a typo during the live demo.
@@ -169,13 +204,20 @@ def explain_metric(metric_name: str, value: Number) -> str:
         # (that's Success@10).
         pct = max(0.0, min(100.0, v * 100.0))
         return f"top-10 contains {pct:.0f}% of known-relevant products per query, on average"
+    if key in {"mrr10", "mrrat10"}:
+        return f"first known-relevant product appears around rank {1 / v:.1f}, on average" if v else "no known-relevant product found in top 10"
+    if key in {"precision10", "precisionat10"}:
+        pct = max(0.0, min(100.0, v * 100.0))
+        return f"{pct:.0f}% of top-10 results are known-relevant, on average"
 
     return f"{metric_name} = {value}"
 
 
 __all__ = [
     "ndcg_at_k",
+    "mrr_at_k",
     "recall_at_k",
+    "precision_at_k",
     "bootstrap_ci",
     "ESCI_REL_MAP",
     "explain_metric",

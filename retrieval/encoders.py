@@ -1,21 +1,19 @@
-"""SPLADE encoder used by the workshop notebook and helper scripts.
+"""Sparse encoders used by the workshop notebook and setup script.
 
-The fine-tuned SPLADE checkpoint (``thierrydamiba/splade-ecommerce-esci``) is
-loaded via ``transformers`` rather than FastEmbed because we want a single
-``encode`` entry point shared between:
+The fine-tuned SPLADE model (``thierrydamiba/splade-ecommerce-esci``) is
+loaded with ``transformers`` because it is a custom model, not one of the
+qdrant-client/FastEmbed built-in models. This gives us a single ``encode``
+entry point shared between:
 
-* ``scripts/setup_collections.py`` (one-shot, populates the ``products``
-  collection's ``splade_finetuned`` named sparse vector)
-* ``scripts/benchmark_latency.py`` (per-query encoding inside the latency
-  loop)
-* the lab notebook (CP2 sparse-vector inspection, CP3 hybrid fusion)
+* ``scripts/setup_collections.py`` (one-shot product indexing)
+* the lab notebook (SPLADE search, sparse-vector inspection, hybrid fusion)
+* the pilot verification notebook
 
 Public API::
 
-    from eval import SpladeEncoder
-    enc = SpladeEncoder("thierrydamiba/splade-ecommerce-esci", device="cpu")
-    pairs = enc.encode(["iphone 256gb"])  # -> List[Tuple[List[int], List[float]]]
-    indices, values = pairs[0]
+    from retrieval import SpladeEncoder
+    encoder = SpladeEncoder("thierrydamiba/splade-ecommerce-esci", device="cpu")
+    indices, values = encoder.encode(["iphone 256gb"])[0]
 """
 
 from __future__ import annotations

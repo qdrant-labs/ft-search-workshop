@@ -22,11 +22,9 @@ every product appearing in any of those queries' qrels rows -- typically
 products are reachable.
 
 The selection is materialized into ``data/corpus_manifest.json`` at the end
-of provisioning. The lab notebook reads that manifest to (a) sanity-check
-the Qdrant collection it sees was built from the same selection and (b)
-filter the live ESCI test split down to exactly the 2K eval set used at
-provision time. The manifest is what keeps provisioning and notebook in
-lockstep -- never edit it by hand.
+of provisioning. The lab notebook reads that manifest to filter the live ESCI
+test split down to exactly the 2K eval set used at provision time. The
+manifest is build metadata -- never edit it by hand.
 
 Usage::
 
@@ -60,7 +58,7 @@ from qdrant_client import QdrantClient, models
 from transformers import AutoTokenizer
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from eval.encoders import SpladeEncoder  # noqa: E402
+from retrieval import SpladeEncoder  # noqa: E402
 
 LOG = logging.getLogger("setup_collections")
 
@@ -84,10 +82,10 @@ DENSE_VECTOR_NAME = "dense"
 BM25_VECTOR_NAME = "bm25"
 SPLADE_VECTOR_NAME = "splade_finetuned"
 
-# Path the notebook reads to learn which 2K queries to evaluate and how big
-# the corpus should be. Written at the end of every successful provisioning.
+# Path the notebook reads to learn which 2K queries to evaluate.
+# Written at the end of every successful provisioning.
 MANIFEST_PATH = Path("data/corpus_manifest.json")
-MANIFEST_SAMPLE_SIZE = 50  # number of product_ids retained for reachability spot-check
+MANIFEST_SAMPLE_SIZE = 50  # used by the optional pilot verification notebook
 
 
 def assert_supported_runtime() -> None:
@@ -271,7 +269,7 @@ def write_corpus_manifest(
     sample_seed: int,
     sample_size: int,
 ) -> None:
-    """Write the contract the lab notebook reads at startup."""
+    """Write build metadata the lab notebook reads at startup."""
     rng = random.Random(sample_seed)
     sorted_pids = sorted(corpus_df["product_id"].tolist())
     sample_pids = (

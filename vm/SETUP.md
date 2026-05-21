@@ -211,11 +211,8 @@ print('OK: dense query returned 5 results')
 Then open the built-in IDE, open `notebooks/lab.ipynb`, and run the first Setup cell. Expected shape:
 
 ```text
-[OK] Qdrant up at localhost:6333, products collection has ~38,000 points (matches manifest)
-[OK] reachability spot-check: 50/50 sample products present
-Loading ~2,000 ESCI eval queries from HuggingFace...
-[OK] ESCI eval set: ~2,000 queries loaded
-Ready. Corpus: ~38,000 products · 10 demo queries · 5 bad queries · ~2,000 eval queries.
+Loading labels for 2,000 ESCI eval queries...
+Ready. Corpus: ~38,000 products · 10 demo queries · 5 bad queries · 2,000 eval queries.
 ```
 
 ## Pilot Run

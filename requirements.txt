@@ -14,4 +14,5 @@ tqdm>=4
 datasets>=4.8,<5
 dill>=0.4.1,<0.4.2
 multiprocess>=0.70.19,<0.70.20
-# splade_training.ipynb needs: sentence-transformers, matplotlib, huggingface_hub — install separately for the training takeaway
+# Training notebook extras, installed separately:
+# sentence-transformers accelerate pyarrow matplotlib huggingface_hub

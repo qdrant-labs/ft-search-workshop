@@ -1,12 +1,11 @@
 # Fine-Tuning AI Search for E-commerce — Workshop Repo
 
-This repo contains the hands-on lab from the workshop. It compares five retrieval approaches for e-commerce product search:
+This repo contains the hands-on lab from the workshop. It compares four retrieval approaches for e-commerce product search:
 
 - BM25
-- Dense MiniLM
+- Generic dense MiniLM
 - Fine-tuned SPLADE
-- Hybrid dense + BM25
-- Hybrid dense + SPLADE
+- Hybrid generic dense + SPLADE
 
 The lab uses Amazon ESCI relevance labels and Qdrant. Product-side vectors are built once into a local Qdrant collection; retrieval results, metric tables, and bootstrap confidence intervals are computed live when you run the notebook.
 
@@ -15,7 +14,8 @@ The lab uses Amazon ESCI relevance labels and Qdrant. Product-side vectors are b
 ```
 notebooks/      Main lab, training takeaway, and pilot verification notebook
 slides/         Intro deck outline
-eval/           Metrics, viewers, SPLADE encoder
+eval/           Metrics and result viewers
+retrieval/      Retrieval model helpers
 scripts/        Local collection builder
 data/           Curated query lists plus generated local build outputs
 agenda.md       Public agenda
@@ -69,13 +69,15 @@ That command loads the ESCI test split (labeled product-search queries with Exac
 - `data/splade_vocab.json`
 - Qdrant collection `products`
 
+`data/splade_vocab.json` is only for notebook inspection. SPLADE sparse vectors are stored as token IDs plus weights; this file maps those token IDs back to readable tokens so the lab can show which terms fired for a query. Qdrant does not need this file for retrieval.
+
 This corpus construction is workshop-specific. We use a subset of ESCI and index only products with relevance labels for the selected eval queries so every graded product is reachable during the lab. In a normal production workflow, you would index your full product catalog first, then evaluate against query logs, judgments, clicks, or other relevance data.
 
 ## Run The Lab
 
 Open `notebooks/lab.ipynb` in your IDE or notebook environment.
 
-Select the Python environment you created above, then run the Setup cell first. It checks Qdrant, validates `data/corpus_manifest.json`, loads ESCI qrels, and prepares the demo queries.
+Select the Python environment you created above, then run the Setup cell first. It connects to Qdrant, loads ESCI qrels, and prepares the demo queries.
 
 ## Data Files
 
@@ -86,15 +88,19 @@ Committed:
 
 Generated locally:
 
-- `data/corpus_manifest.json` — selected eval query IDs, expected product count, reachability sample
-- `data/splade_vocab.json` — tokenizer vocab for sparse-vector inspection
+- `data/corpus_manifest.json` — selected eval query IDs and build metadata
+- `data/splade_vocab.json` — SPLADE token ID to token text map for sparse-vector inspection
 - `qdrant_data/` — local Qdrant storage
 
 ## Training Takeaway
 
 `notebooks/splade_training.ipynb` is the self-study notebook for how the fine-tuned SPLADE model was produced. It is not required for the main lab.
 
-The training notebook is illustrative and expects more than the basic lab environment. For a real run, use a GPU and install its extra dependencies, such as `sentence-transformers`, `matplotlib`, and `huggingface_hub`.
+The training notebook is illustrative and expects more than the basic lab environment. For a real run, use a GPU and install these extra dependencies:
+
+```bash
+python -m pip install sentence-transformers accelerate pyarrow matplotlib huggingface_hub
+```
 
 ## Useful Commands
 
@@ -109,7 +115,3 @@ Use a smaller product cap for a quick smoke test:
 ```bash
 python scripts/setup_collections.py --recreate --limit 500
 ```
-
-Run the pilot verification notebook after building the collection:
-
-Open `notebooks/pilot_verify.ipynb` in your IDE or notebook environment.
