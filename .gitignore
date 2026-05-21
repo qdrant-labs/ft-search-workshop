@@ -192,3 +192,6 @@ qdrant_data/
 
 # Local .claude directory
 .claude/
+
+# mac_os files
+.DS_Store

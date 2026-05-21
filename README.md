@@ -5,7 +5,7 @@ This repo contains the hands-on lab from the workshop. It compares four retrieva
 - BM25
 - Generic dense MiniLM
 - Fine-tuned SPLADE
-- Hybrid generic dense + SPLADE
+- Hybrid DBSF over generic dense + SPLADE
 
 The lab uses Amazon ESCI relevance labels and Qdrant. Product-side vectors are built once into a local Qdrant collection; retrieval results, metric tables, and bootstrap confidence intervals are computed live when you run the notebook.
 

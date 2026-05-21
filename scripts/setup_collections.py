@@ -9,9 +9,9 @@ One collection, three named vectors per point:
                             (HuggingFace ``transformers``; override via
                             ``--finetuned-model``)
 
-Hybrid (dense + fine-tuned SPLADE, RRF) is queried via Qdrant's Query API at
+Hybrid (dense + fine-tuned SPLADE, DBSF) is queried via Qdrant's Query API at
 runtime -- a single ``query_points`` call with two ``Prefetch`` blocks and a
-``FusionQuery(fusion=Fusion.RRF)``.
+``FusionQuery(fusion=Fusion.DBSF)``.
 
 Eval contract
 -------------

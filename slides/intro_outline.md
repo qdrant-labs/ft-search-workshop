@@ -92,11 +92,11 @@ Target length: 20 minutes · 13 slides · audience is mixed-technical, including
 **Goal:** Introduce fusion as the production-grade move.
 **Bullets:**
 - Run dense + sparse retrieval in parallel
-- Fuse the ranked lists with Reciprocal Rank Fusion (RRF)
+- Fuse the lists with Distribution-Based Score Fusion (DBSF)
 - Dense catches semantic matches; sparse protects exact attributes
 - We'll build generic dense + SPLADE in the lab
-**Speaker notes:** RRF is the default because it is parameter-free: it combines rank positions instead of requiring calibrated scores. The important idea is that hybrid search is not a hack; it is a practical way to use multiple retrieval signals. Qdrant's Query API runs generic dense + SPLADE fusion as one request in the lab. Dense + BM25 is also common in production, but it is not part of the main lab path.
-**Visual:** Two parallel lanes at the top (dense lane and sparse lane), each producing a ranked list of product cards. Arrows converge into an "RRF" box, then one fused top-10 list.
+**Speaker notes:** DBSF normalizes each retriever's scores before adding them together. The important idea is that hybrid search is not a hack; it is a practical way to use multiple retrieval signals. Qdrant's Query API runs generic dense + SPLADE fusion as one request in the lab. Dense + BM25 is also common in production, but it is not part of the main lab path.
+**Visual:** Two parallel lanes at the top (dense lane and sparse lane), each producing a scored list of product cards. Arrows converge into a "DBSF" box, then one fused top-10 list.
 
 ---
 
@@ -132,9 +132,9 @@ Target length: 20 minutes · 13 slides · audience is mixed-technical, including
 **Bullets:**
 - **CP1 (12 min):** BM25 baseline on 10 demo queries — qualitative, ESCI grades visible
 - **CP2 (20 min):** BM25, generic dense, and fine-tuned SPLADE — first metrics on the demo set
-- **CP3 (13 min):** Hybrid fusion with RRF — generic dense + fine-tuned SPLADE
-- **Wrap (15 min):** Full 2K eval with CIs across four approaches (BM25, Generic dense, SPLADE, Hybrid (D+SPLADE)) · query-level findings · bad queries / query-routing demo · Q&A
-**Speaker notes:** Walk through each CP in ~20 seconds. CP1 anchors the lab in the traditional lexical product-search baseline. CP2 adds the generic dense model and fine-tuned SPLADE, with the first metric reveal. CP3 adds one hybrid recipe so the lab stays focused on the SPLADE story. Total = 60 min hands-on.
+- **CP3 (13 min):** Hybrid fusion with DBSF — generic dense + fine-tuned SPLADE
+- **Wrap (15 min):** Full 2K eval with CIs across four approaches (BM25, Generic dense, SPLADE, Hybrid DBSF) · query-level findings · bad queries / query-routing demo · Q&A
+**Speaker notes:** Walk through each CP in ~20 seconds. CP1 anchors the lab in the traditional lexical product-search baseline. CP2 adds the generic dense model and fine-tuned SPLADE, with the first metric reveal. CP3 adds one DBSF hybrid recipe so the lab stays focused on the SPLADE story. Total = 60 min hands-on.
 **Visual:** A horizontal timeline with four blocks (CP1, CP2, CP3, Wrap) sized proportionally to their minute budgets. Each block has a one-line subtitle and an icon (eyeballs for CP1, gauge for CP2, fusion-symbol for CP3, trophy for Wrap).
 
 ---
@@ -145,11 +145,11 @@ Target length: 20 minutes · 13 slides · audience is mixed-technical, including
 - Eval queries = 2,000 ESCI product-search queries
 - Qrels = the answer key: query-product relevance labels (Exact / Substitute / Complement / Irrelevant)
 - nDCG@10 is the primary score: it uses ESCI grades, not exact-match only
-- MRR@10 / Recall@10 / Precision@10 give extra lenses on the same run
-- Quality comparison across four approaches: BM25, Generic dense, SPLADE, Hybrid (D+SPLADE)
+- MRR@10 / Recall@10 / Precision@10 are supporting checks from the same run
+- Quality comparison across four approaches: BM25, Generic dense, SPLADE, Hybrid DBSF
 - Takeaway notebook: train your own on your own data
-**Speaker notes:** Define the measurement terms before showing the lift: an eval query is one ESCI query text, and qrels are the labeled query-product judgments we compare retrieved IDs against. The final notebook shows aggregate metrics plus example queries where SPLADE helped most and where hybrid helped or hurt. Note the CI — this is the authoritative claim, not the illustrative demo-set metrics.
-**Visual:** A preview of the final wrap table: 4 rows in lineup order (BM25, Generic dense, SPLADE, Hybrid (D+SPLADE)), columns for nDCG@10, MRR@10, Recall@10, and Precision@10 with CI bars. Add a small second panel titled "Where did the lift come from?" with 3 example query rows. Caption: "You'll see this filled in for real at the end."
+**Speaker notes:** Define the measurement terms before showing the lift: an eval query is one ESCI query text, and qrels are the labeled query-product judgments we compare retrieved IDs against. The final notebook leads with nDCG@10 plus delta vs BM25, then shows supporting metrics and example queries where SPLADE helped most and where hybrid helped or hurt. Note the CI — this is the authoritative claim, not the illustrative demo-set metrics.
+**Visual:** A preview of the final wrap table: 4 rows in lineup order (BM25, Generic dense, SPLADE, Hybrid DBSF), with nDCG@10 CI and delta vs BM25 as the headline columns. Add a small supporting-metrics strip for MRR@10 / Recall@10 / Precision@10 and a second panel titled "Where did the lift come from?" with 3 example query rows. Caption: "You'll see this filled in for real at the end."
 
 ---
 
