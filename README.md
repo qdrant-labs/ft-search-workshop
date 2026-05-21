@@ -27,7 +27,7 @@ requirements.txt
 - Recommended: 16 GB RAM
 - Set aside one to two hours for the SPLADE product-encoding
 
-The collection build indexes roughly 35K-40K products. On CPU, SPLADE product encoding can take a while. That's normal.
+The default collection build indexes roughly 35K-40K products (every product graded for the 2K eval queries). On CPU, SPLADE product encoding can take a while. That's normal. Add `--corpus-distractors N` to extend the corpus with N additional non-graded products for a more realistic catalog.
 
 On macOS, install Python 3.12 with `brew install python@3.12` if `python3.12` is not already available.
 
@@ -106,8 +106,8 @@ Rebuild the product collection from scratch:
 python scripts/setup_collections.py --recreate
 ```
 
-Use a smaller product cap for a quick smoke test:
+Rebuild with extra distractor products (more realistic catalog, longer encode pass):
 
 ```bash
-python scripts/setup_collections.py --recreate --limit 500
+python scripts/setup_collections.py --recreate --corpus-distractors 80000
 ```
