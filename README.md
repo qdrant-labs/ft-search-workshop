@@ -13,12 +13,10 @@ The lab uses Amazon ESCI relevance labels and Qdrant. Product-side vectors are b
 
 ```
 notebooks/      Main lab and training takeaway
-slides/         Intro deck outline
 eval/           Metrics and result viewers
 retrieval/      Retrieval model helpers
 scripts/        Local collection builder
 data/           Curated query lists plus generated local build outputs
-WORKSHOP.md     Detailed workshop plan
 requirements.txt
 ```
 
@@ -83,7 +81,6 @@ Select the Python environment you created above, then run the Setup cell first. 
 Committed:
 
 - `data/demo_queries.json`: 10 curated product-search demo queries
-- `data/bad_queries.json`: five bad queries for the query-routing demo
 
 Generated locally:
 

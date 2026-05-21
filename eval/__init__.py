@@ -17,7 +17,7 @@ from eval.metrics import (
     ESCI_REL_MAP,
     explain_metric,
 )
-from eval.viewer import compare_results, inspect_sparse_vector, render_query_block
+from eval.viewer import compare_results, inspect_sparse_vector
 
 __all__ = [
     "ndcg_at_k",
@@ -27,6 +27,5 @@ __all__ = [
     "ESCI_REL_MAP",
     "compare_results",
     "inspect_sparse_vector",
-    "render_query_block",
     "explain_metric",
 ]
