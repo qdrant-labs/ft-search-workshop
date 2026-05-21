@@ -92,10 +92,10 @@ Generated locally:
 
 `notebooks/splade_training.ipynb` is the self-study notebook for how the fine-tuned SPLADE model was produced. It is not required for the main lab.
 
-The training notebook is illustrative and expects more than the basic lab environment. For a real run, use a GPU and install these extra dependencies:
+The training notebook runs in a safe default mode and skips expensive training unless you enable it. To run the training cells, use a GPU and install these extra dependencies:
 
 ```bash
-python -m pip install sentence-transformers accelerate pyarrow matplotlib huggingface_hub
+python -m pip install "sentence-transformers>=5,<6" "accelerate>=1,<2" "huggingface_hub>=0.36,<1"
 ```
 
 ## Useful Commands

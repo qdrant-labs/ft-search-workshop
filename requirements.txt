@@ -15,4 +15,4 @@ datasets>=4.8,<5
 dill>=0.4.1,<0.4.2
 multiprocess>=0.70.19,<0.70.20
 # Training notebook extras, installed separately:
-# sentence-transformers accelerate pyarrow matplotlib huggingface_hub
+# sentence-transformers>=5,<6 accelerate>=1,<2 huggingface_hub>=0.36,<1
