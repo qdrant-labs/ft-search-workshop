@@ -1,24 +1,23 @@
-# Fine-Tuning AI Search for E-commerce — Workshop Repo
+# Fine-Tuning AI Search for E-commerce: Workshop Repo
 
-This repo contains the hands-on lab from the workshop. It compares four retrieval approaches for e-commerce product search:
+This repo contains the hands-on lab from the workshop. The main model-quality comparison is BM25 vs generic dense vs fine-tuned SPLADE, then the lab adds hybrid search as the production pattern most teams use:
 
-- BM25
-- Generic dense MiniLM
+- BM25 lexical baseline
+- Generic dense MiniLM with Qdrant HNSW vector search
 - Fine-tuned SPLADE
-- Hybrid DBSF over generic dense + SPLADE
+- Hybrid DBSF over generic dense + SPLADE as a production extension
 
-The lab uses Amazon ESCI relevance labels and Qdrant. Product-side vectors are built once into a local Qdrant collection; retrieval results, metric tables, and bootstrap confidence intervals are computed live when you run the notebook.
+The lab uses Amazon ESCI relevance labels and Qdrant. Product-side vectors are built once into a local Qdrant collection; retrieval results and metric tables are computed live when you run the notebook.
 
 ## Repo Layout
 
 ```
-notebooks/      Main lab, training takeaway, and pilot verification notebook
+notebooks/      Main lab and training takeaway
 slides/         Intro deck outline
 eval/           Metrics and result viewers
 retrieval/      Retrieval model helpers
 scripts/        Local collection builder
 data/           Curated query lists plus generated local build outputs
-agenda.md       Public agenda
 WORKSHOP.md     Detailed workshop plan
 requirements.txt
 ```
@@ -30,7 +29,7 @@ requirements.txt
 - Recommended: 16 GB RAM
 - Set aside one to two hours for the SPLADE product-encoding
 
-The collection build indexes roughly 35K-40K products. On CPU, SPLADE product encoding can take a while. That is normal.
+The collection build indexes roughly 35K-40K products. On CPU, SPLADE product encoding can take a while. That's normal.
 
 On macOS, install Python 3.12 with `brew install python@3.12` if `python3.12` is not already available.
 
@@ -73,7 +72,7 @@ That command loads the ESCI test split (labeled product-search queries with Exac
 
 This corpus construction is workshop-specific. We use a subset of ESCI and index only products with relevance labels for the selected eval queries so every graded product is reachable during the lab. In a normal production workflow, you would index your full product catalog first, then evaluate against query logs, judgments, clicks, or other relevance data.
 
-## Run The Lab
+## Run the Lab
 
 Open `notebooks/lab.ipynb` in your IDE or notebook environment.
 
@@ -83,14 +82,14 @@ Select the Python environment you created above, then run the Setup cell first. 
 
 Committed:
 
-- `data/demo_queries.json` — 10 curated product-search demo queries
-- `data/bad_queries.json` — 5 bad queries for the query-routing demo
+- `data/demo_queries.json`: 10 curated product-search demo queries
+- `data/bad_queries.json`: five bad queries for the query-routing demo
 
 Generated locally:
 
-- `data/corpus_manifest.json` — selected eval query IDs and build metadata
-- `data/splade_vocab.json` — SPLADE token ID to token text map for sparse-vector inspection
-- `qdrant_data/` — local Qdrant storage
+- `data/corpus_manifest.json`: selected eval query IDs and build metadata
+- `data/splade_vocab.json`: SPLADE token ID to token text map for sparse-vector inspection
+- `qdrant_data/`: local Qdrant storage
 
 ## Training Takeaway
 

@@ -17,7 +17,7 @@ for notebooks or docs that need a plain-English metric description.
 
 from __future__ import annotations
 
-from typing import Dict, Mapping, Sequence, Tuple, Union
+from typing import Dict, Mapping, Sequence, Union
 
 import numpy as np
 
@@ -134,32 +134,6 @@ def mrr_at_k(
     return 0.0
 
 
-def bootstrap_ci(
-    per_query_scores: Sequence[float],
-    n_bootstrap: int = 1000,
-    ci: float = 0.95,
-    seed: int = 13,
-) -> Tuple[float, float, float]:
-    """Bootstrap mean and (lo, hi) confidence interval over per-query scores.
-
-    Returns:
-        (mean, lo, hi). For an empty input returns ``(0.0, 0.0, 0.0)``.
-    """
-    scores = np.asarray(list(per_query_scores), dtype=float)
-    if scores.size == 0:
-        return 0.0, 0.0, 0.0
-
-    rng = np.random.default_rng(seed)
-    n = scores.size
-    idx = rng.integers(0, n, size=(n_bootstrap, n))
-    means = scores[idx].mean(axis=1)
-
-    alpha = (1.0 - ci) / 2.0
-    lo = float(np.quantile(means, alpha))
-    hi = float(np.quantile(means, 1.0 - alpha))
-    return float(scores.mean()), lo, hi
-
-
 # ---------------------------------------------------------------------------
 # Plain-language explanations for headline metrics
 #
@@ -218,7 +192,6 @@ __all__ = [
     "mrr_at_k",
     "recall_at_k",
     "precision_at_k",
-    "bootstrap_ci",
     "ESCI_REL_MAP",
     "explain_metric",
 ]

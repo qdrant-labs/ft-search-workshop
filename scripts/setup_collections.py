@@ -9,9 +9,9 @@ One collection, three named vectors per point:
                             (HuggingFace ``transformers``; override via
                             ``--finetuned-model``)
 
-Hybrid (dense + fine-tuned SPLADE, DBSF) is queried via Qdrant's Query API at
-runtime -- a single ``query_points`` call with two ``Prefetch`` blocks and a
-``FusionQuery(fusion=Fusion.DBSF)``.
+The lab also demonstrates the production hybrid pattern: dense + fine-tuned
+SPLADE via Qdrant's Query API, using two ``Prefetch`` blocks and a
+``FusionQuery(fusion=Fusion.DBSF)`` at runtime.
 
 Eval contract
 -------------
@@ -85,7 +85,6 @@ SPLADE_VECTOR_NAME = "splade_finetuned"
 # Path the notebook reads to learn which 2K queries to evaluate.
 # Written at the end of every successful provisioning.
 MANIFEST_PATH = Path("data/corpus_manifest.json")
-MANIFEST_SAMPLE_SIZE = 50  # used by the optional pilot verification notebook
 
 
 def assert_supported_runtime() -> None:
@@ -270,12 +269,6 @@ def write_corpus_manifest(
     sample_size: int,
 ) -> None:
     """Write build metadata the lab notebook reads at startup."""
-    rng = random.Random(sample_seed)
-    sorted_pids = sorted(corpus_df["product_id"].tolist())
-    sample_pids = (
-        sorted_pids if len(sorted_pids) <= MANIFEST_SAMPLE_SIZE
-        else rng.sample(sorted_pids, k=MANIFEST_SAMPLE_SIZE)
-    )
     manifest = {
         "schema_version": 2,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -287,13 +280,12 @@ def write_corpus_manifest(
         "eval_sample_seed": sample_seed,
         "eval_query_ids": eval_query_ids,
         "corpus_product_count": int(len(corpus_df)),
-        "corpus_sample_product_ids": sorted(sample_pids),
     }
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
     LOG.info(
-        "wrote %s (eval_queries=%d, corpus=%d, sample=%d)",
-        manifest_path, len(eval_query_ids), len(corpus_df), len(sample_pids),
+        "wrote %s (eval_queries=%d, corpus=%d)",
+        manifest_path, len(eval_query_ids), len(corpus_df),
     )
 
 

@@ -7,7 +7,6 @@ entry point shared between:
 
 * ``scripts/setup_collections.py`` (one-shot product indexing)
 * the lab notebook (SPLADE search, sparse-vector inspection, hybrid fusion)
-* the pilot verification notebook
 
 Public API::
 

@@ -195,3 +195,7 @@ qdrant_data/
 
 # mac_os files
 .DS_Store
+
+# Author files
+WORKSHOP.md
+slides/intro_outline.md
