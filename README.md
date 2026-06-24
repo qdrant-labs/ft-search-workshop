@@ -38,6 +38,7 @@ Create a Python environment and install dependencies:
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
+python --version #Should display Python 3.12.13
 python -m pip install -r requirements.txt
 ```
 
